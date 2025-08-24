@@ -301,7 +301,7 @@ def draw_button(img, pressed, text, pos):
     w, h = button_size
     color = (0, 200, 0) if pressed else (0, 100, 0)
     cv2.rectangle(img, (x, y), (x+w, y+h), color, -1)
-    cv2.putText(img, text, (x+10, y+28), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255,255,255), 2)
+    cv2.putText(img, text, (x+10, y+28), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255,255,255), 2)
 
 def check_button_click(x, y, pos):
     bx, by = pos
@@ -491,8 +491,6 @@ try:
                         pyautogui.click()
                         print("single click")
                         time.sleep(0.15)
-                #detect_double_click(thumb_tip, ring_tip, CLICK_THRESHOLD)
-               # detect_right_click(thumb_tip, middle_tip, CLICK_THRESHOLD)
             elif not keyboard_mode and not arrow_mode:
                 if detect_left_click(thumb_tip, index_tip, CLICK_THRESHOLD):
                     pyautogui.click()
@@ -592,3 +590,4 @@ finally:
     cap.release()
     cv2.destroyAllWindows()
     hands.close()
+
