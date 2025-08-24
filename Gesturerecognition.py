@@ -5,7 +5,6 @@ import numpy as np
 import time
 import win32gui
 import win32con
-import uuid
 
 pyautogui.FAILSAFE = True
 pyautogui.PAUSE = 0.01  
@@ -590,3 +589,4 @@ finally:
     cap.release()
     cv2.destroyAllWindows()
     hands.close()
+
