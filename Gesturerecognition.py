@@ -27,23 +27,27 @@ last_key_time = 0
 last_single_click_time = 0
 last_double_click_time = 0
 last_media_time = 0
+last_zoom_time = 0
 # Затримки
 SINGLE_CLICK_DEBOUNCE = 8.0  
 DOUBLE_CLICK_DEBOUNCE = 8.0  
 RIGHT_CLICK_DEBOUNCE = 8.0   
 ARROW_DEBOUNCE = 0.5
-KEY_DEBOUNCE = 0.7
+KEY_DEBOUNCE = 0.4
 MEDIA_GESTURE_DEBOUNCE = 0.7
+ZOOM_DEBOUNCE = 0.3
 
 cursor_x, cursor_y = pyautogui.position()
 arrow_mode = False
 keyboard_mode = False  
 multimedia_mode = False
 volume_control_active = False
+zoom_mode = False
 button_pressed = False
 keyboard_button_pressed = False  
 multimedia_button_pressed = False
 volume_button_pressed = False
+zoom_button_pressed = False
 caps_lock = False  
 
 # ===== Віртуальна клавіатура =====
@@ -83,7 +87,7 @@ def draw_keyboard(img):
                 cv2.rectangle(img, (key_x, key_y), (key_x + key_size[0]*3, key_y + key_size[1]), (100, 100, 100), -1)
                 cv2.putText(img, 'backspace', (key_x + 5, key_y + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 250), 2)
             elif key == 'enter':
-                cv2.rectangle(img, (key_x, y), (key_x + key_size[0]*3, key_y + key_size[1]), (100, 100, 100), -1)
+                cv2.rectangle(img, (key_x, key_y), (key_x + key_size[0]*2, key_y + key_size[1]), (100, 100, 100), -1)
                 cv2.putText(img, 'enter', (key_x + 5, key_y + 30), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 2)
             elif key == 'caps':
                 color = (0, 200, 0) if caps_lock else (100, 100, 100)
@@ -115,7 +119,7 @@ def check_key_press(x, y, threshold):
             elif row_idx == 4 and key == 'caps':
                 key_x += key_spacing * 8
             key_y = ky + row_idx * (key_size[1] + key_spacing)
-            key_w = key_size[0] * (4 if key == 'space' else 3 if key in ['backspace', 'enter'] else 2 if key == 'caps' else 1)
+            key_w = key_size[0] * (4 if key == 'space' else 3 if key == 'backspace' else 2 if key in ['enter', 'caps'] else 1)
             if key_x <= img_x <= key_x + key_w and key_y <= img_y <= key_y + key_size[1]:
                 try:
                     if key == 'caps':
@@ -205,6 +209,26 @@ def detect_simple_arrow(index_tip, palm_center, sensitivity=0.1):
             print("arrow ↓")
             last_arrow_time = current_time
 
+def detect_zoom_gesture(thumb_tip, index_tip, zoom_sensitivity, zoom_threshold_min, zoom_threshold_max):
+    global last_zoom_time, zoom_mode
+    current_time = time.time()
+    if not zoom_mode:
+        return
+    if current_time - last_zoom_time < ZOOM_DEBOUNCE:
+        return
+
+    dist = calculate_distance(thumb_tip, index_tip)
+    if dist > zoom_threshold_max:
+        pyautogui.hotkey('ctrl', '+')
+        print("Zoom In")
+        last_zoom_time = current_time
+        time.sleep(0.2)
+    elif dist < zoom_threshold_min:
+        pyautogui.hotkey('ctrl', '-')
+        print("Zoom Out")
+        last_zoom_time = current_time
+        time.sleep(0.2)
+
 def detect_multimedia_gestures(landmarks, palm_center, play_pause_sensitivity, next_track_sensitivity, prev_track_sensitivity, volume_sensitivity):
     global last_media_time, volume_control_active
     current_time = time.time()
@@ -218,7 +242,6 @@ def detect_multimedia_gestures(landmarks, palm_center, play_pause_sensitivity, n
     middle_tip = landmarks[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
     ring_tip = landmarks[mp_hands.HandLandmark.RING_FINGER_TIP]
 
-    
     if calculate_distance(thumb_tip, pinky_tip) < play_pause_sensitivity:
         pyautogui.press('space')  
         print("Multimedia: Play/Pause")
@@ -226,7 +249,6 @@ def detect_multimedia_gestures(landmarks, palm_center, play_pause_sensitivity, n
         time.sleep(0.2)
         return True
 
-    
     elif calculate_distance(thumb_tip, middle_tip) < next_track_sensitivity:
         pyautogui.hotkey('ctrl', 'right')  
         pyautogui.hotkey('ctrl', 'f')  
@@ -236,7 +258,6 @@ def detect_multimedia_gestures(landmarks, palm_center, play_pause_sensitivity, n
         time.sleep(0.2)
         return True
 
- 
     elif calculate_distance(thumb_tip, ring_tip) < prev_track_sensitivity:
         pyautogui.hotkey('ctrl', 'left')  
         pyautogui.hotkey('ctrl', 'b')  
@@ -246,7 +267,6 @@ def detect_multimedia_gestures(landmarks, palm_center, play_pause_sensitivity, n
         time.sleep(0.2)
         return True
 
-  
     elif volume_control_active:
         dy = thumb_tip.y - palm_center[1]
         if dy < -volume_sensitivity:
@@ -269,10 +289,12 @@ button_text = "Toggle Arrow Mode"
 keyboard_button_text = "Toggle Keyboard"
 multimedia_button_text = "Toggle Multimedia"
 volume_button_text = "Toggle Volume"
+zoom_button_text = "Toggle Zoom"
 button_pos = (10, 60)
 keyboard_button_pos = (240, 60)
 multimedia_button_pos = (470, 60)
 volume_button_pos = (470, 110)
+zoom_button_pos = (470, 160)
 button_size = (220, 40)
 
 def draw_button(img, pressed, text, pos):
@@ -298,6 +320,9 @@ cv2.createTrackbar("Smoothing", "Settings", 5, 20, nothing)
 cv2.createTrackbar("Move Scale", "Settings", 25, 50, nothing)
 cv2.createTrackbar("Click Threshold", "Settings", 12, 30, nothing)
 cv2.createTrackbar("Volume Sensitivity", "Settings", 10, 30, nothing)
+cv2.createTrackbar("Zoom Sensitivity", "Settings", 10, 30, nothing)
+cv2.createTrackbar("Zoom Threshold Min", "Settings", 5, 20, nothing)
+cv2.createTrackbar("Zoom Threshold Max", "Settings", 15, 30, nothing)
 cv2.createTrackbar("Single Click Delay", "Settings", 80, 200, nothing)
 cv2.createTrackbar("Double Click Delay", "Settings", 80, 200, nothing)
 cv2.createTrackbar("Right Click Delay", "Settings", 80, 200, nothing)
@@ -307,7 +332,7 @@ cv2.createTrackbar("Prev Track Sensitivity", "Settings", 5, 30, nothing)
 
 # ===== Миша для інтерфейсу  =====
 def mouse_callback(event, x, y, flags, param):
-    global arrow_mode, button_pressed, keyboard_mode, keyboard_button_pressed, multimedia_mode, multimedia_button_pressed, volume_control_active, volume_button_pressed
+    global arrow_mode, button_pressed, keyboard_mode, keyboard_button_pressed, multimedia_mode, multimedia_button_pressed, volume_control_active, volume_button_pressed, zoom_mode, zoom_button_pressed
     if event == cv2.EVENT_LBUTTONDOWN:
         if check_button_click(x, y, button_pos):
             arrow_mode = not arrow_mode
@@ -316,9 +341,11 @@ def mouse_callback(event, x, y, flags, param):
                 keyboard_mode = False
                 multimedia_mode = False
                 volume_control_active = False
+                zoom_mode = False
                 keyboard_button_pressed = False
                 multimedia_button_pressed = False
                 volume_button_pressed = False
+                zoom_button_pressed = False
             print(f"Arrow mode toggled {'on' if arrow_mode else 'off'}")
         elif check_button_click(x, y, keyboard_button_pos):
             keyboard_mode = not keyboard_mode
@@ -327,9 +354,11 @@ def mouse_callback(event, x, y, flags, param):
                 arrow_mode = False
                 multimedia_mode = False
                 volume_control_active = False
+                zoom_mode = False
                 button_pressed = False
                 multimedia_button_pressed = False
                 volume_button_pressed = False
+                zoom_button_pressed = False
             print(f"Keyboard mode toggled {'on' if keyboard_mode else 'off'}")
         elif check_button_click(x, y, multimedia_button_pos):
             multimedia_mode = not multimedia_mode
@@ -337,8 +366,10 @@ def mouse_callback(event, x, y, flags, param):
             if multimedia_mode:
                 arrow_mode = False
                 keyboard_mode = False
+                zoom_mode = False
                 button_pressed = False
                 keyboard_button_pressed = False
+                zoom_button_pressed = False
             else:
                 volume_control_active = False
                 volume_button_pressed = False
@@ -347,6 +378,19 @@ def mouse_callback(event, x, y, flags, param):
             volume_control_active = not volume_control_active
             volume_button_pressed = volume_control_active
             print(f"Volume control toggled {'on' if volume_control_active else 'off'}")
+        elif check_button_click(x, y, zoom_button_pos):
+            zoom_mode = not zoom_mode
+            zoom_button_pressed = zoom_mode
+            if zoom_mode:
+                arrow_mode = False
+                keyboard_mode = False
+                multimedia_mode = False
+                volume_control_active = False
+                button_pressed = False
+                keyboard_button_pressed = False
+                multimedia_button_pressed = False
+                volume_button_pressed = False
+            print(f"Zoom mode toggled {'on' if zoom_mode else 'off'}")
 
 # ===== Налаштування вікна =====
 cv2.namedWindow("Gesture Mouse Controller", cv2.WINDOW_NORMAL)
@@ -364,6 +408,9 @@ try:
         MOVE_SCALE = cv2.getTrackbarPos("Move Scale", "Settings") / 10
         CLICK_THRESHOLD = cv2.getTrackbarPos("Click Threshold", "Settings") / 100
         VOLUME_SENSITIVITY = cv2.getTrackbarPos("Volume Sensitivity", "Settings") / 100
+        ZOOM_SENSITIVITY = cv2.getTrackbarPos("Zoom Sensitivity", "Settings") / 100
+        ZOOM_THRESHOLD_MIN = cv2.getTrackbarPos("Zoom Threshold Min", "Settings") / 100
+        ZOOM_THRESHOLD_MAX = cv2.getTrackbarPos("Zoom Threshold Max", "Settings") / 100
         SINGLE_CLICK_DEBOUNCE = cv2.getTrackbarPos("Single Click Delay", "Settings") / 10
         DOUBLE_CLICK_DEBOUNCE = cv2.getTrackbarPos("Double Click Delay", "Settings") / 10
         RIGHT_CLICK_DEBOUNCE = cv2.getTrackbarPos("Right Click Delay", "Settings") / 10
@@ -391,8 +438,7 @@ try:
             middle_tip = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
             ring_tip = hand_landmarks.landmark[mp_hands.HandLandmark.RING_FINGER_TIP]
 
-            
-            if not arrow_mode:
+            if not arrow_mode and not zoom_mode:
                 target_x = np.interp(palm_center[0], [0.2, 0.8], [0, screen_w])
                 target_y = np.interp(palm_center[1], [0.2, 0.8], [0, screen_h])
 
@@ -404,7 +450,21 @@ try:
 
                 pyautogui.moveTo(cursor_x, cursor_y)
 
-            if multimedia_mode:
+            if zoom_mode:
+                detect_zoom_gesture(thumb_tip, index_tip, ZOOM_SENSITIVITY, ZOOM_THRESHOLD_MIN, ZOOM_THRESHOLD_MAX)
+                if detect_left_click(thumb_tip, index_tip, CLICK_THRESHOLD):
+                    img_x = int(index_tip.x * frame.shape[1])
+                    img_y = int(index_tip.y * frame.shape[0])
+                    if check_button_click(img_x, img_y, zoom_button_pos):
+                        zoom_mode = False
+                        zoom_button_pressed = False
+                        print("Zoom mode toggled off")
+                        time.sleep(0.15)
+                    else:
+                        pyautogui.click()
+                        print("single click")
+                        time.sleep(0.15)
+            elif multimedia_mode:
                 multimedia_gesture_detected = detect_multimedia_gestures(
                     hand_landmarks.landmark, 
                     palm_center, 
@@ -451,9 +511,11 @@ try:
                             keyboard_mode = False
                             multimedia_mode = False
                             volume_control_active = False
+                            zoom_mode = False
                             keyboard_button_pressed = False
                             multimedia_button_pressed = False
                             volume_button_pressed = False
+                            zoom_button_pressed = False
                         print(f"Arrow mode toggled {'on' if arrow_mode else 'off'}")
                         time.sleep(0.15)
                     elif check_button_click(img_x, img_y, keyboard_button_pos):
@@ -463,9 +525,11 @@ try:
                             arrow_mode = False
                             multimedia_mode = False
                             volume_control_active = False
+                            zoom_mode = False
                             button_pressed = False
                             multimedia_button_pressed = False
                             volume_button_pressed = False
+                            zoom_button_pressed = False
                         print(f"Keyboard mode toggled {'on' if keyboard_mode else 'off'}")
                         hwnd = win32gui.FindWindow(None, "Gesture Mouse Controller")
                         win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
@@ -476,12 +540,28 @@ try:
                         if multimedia_mode:
                             arrow_mode = False
                             keyboard_mode = False
+                            zoom_mode = False
                             button_pressed = False
                             keyboard_button_pressed = False
+                            zoom_button_pressed = False
                         else:
                             volume_control_active = False
                             volume_button_pressed = False
                         print(f"Multimedia mode toggled {'on' if multimedia_mode else 'off'}")
+                        time.sleep(0.15)
+                    elif check_button_click(img_x, img_y, zoom_button_pos):
+                        zoom_mode = not zoom_mode
+                        zoom_button_pressed = zoom_mode
+                        if zoom_mode:
+                            arrow_mode = False
+                            keyboard_mode = False
+                            multimedia_mode = False
+                            volume_control_active = False
+                            button_pressed = False
+                            keyboard_button_pressed = False
+                            multimedia_button_pressed = False
+                            volume_button_pressed = False
+                        print(f"Zoom mode toggled {'on' if zoom_mode else 'off'}")
                         time.sleep(0.15)
                     else:
                         check_key_press(index_tip.x, index_tip.y, CLICK_THRESHOLD)
@@ -493,9 +573,10 @@ try:
         draw_button(frame, multimedia_button_pressed, multimedia_button_text, multimedia_button_pos)
         if multimedia_mode:
             draw_button(frame, volume_button_pressed, volume_button_text, volume_button_pos)
+        draw_button(frame, zoom_button_pressed, zoom_button_text, zoom_button_pos)
         draw_keyboard(frame)
 
-        status_text = f"Arrow: {'ON' if arrow_mode else 'OFF'} | Keyboard: {'ON' if keyboard_mode else 'OFF'} | Multimedia: {'ON' if multimedia_mode else 'OFF'} | Volume: {'ON' if volume_control_active else 'OFF'} | Caps: {'ON' if caps_lock else 'OFF'}"
+        status_text = f"Arrow: {'ON' if arrow_mode else 'OFF'} | Keyboard: {'ON' if keyboard_mode else 'OFF'} | Multimedia: {'ON' if multimedia_mode else 'OFF'} | Volume: {'ON' if volume_control_active else 'OFF'} | Zoom: {'ON' if zoom_mode else 'OFF'} | Caps: {'ON' if caps_lock else 'OFF'}"
         cv2.putText(frame, status_text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 2)
 
         cv2.imshow("Gesture Mouse Controller", frame)
