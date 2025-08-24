@@ -32,7 +32,7 @@ SINGLE_CLICK_DEBOUNCE = 8.0
 DOUBLE_CLICK_DEBOUNCE = 8.0  
 RIGHT_CLICK_DEBOUNCE = 8.0   
 ARROW_DEBOUNCE = 0.5
-KEY_DEBOUNCE = 0.4
+KEY_DEBOUNCE = 0.1
 MEDIA_GESTURE_DEBOUNCE = 0.7
 ZOOM_DEBOUNCE = 0.3
 
@@ -437,7 +437,7 @@ try:
             middle_tip = hand_landmarks.landmark[mp_hands.HandLandmark.MIDDLE_FINGER_TIP]
             ring_tip = hand_landmarks.landmark[mp_hands.HandLandmark.RING_FINGER_TIP]
 
-            if not arrow_mode and not zoom_mode:
+            if not arrow_mode and not keyboard_mode:
                 target_x = np.interp(palm_center[0], [0.2, 0.8], [0, screen_w])
                 target_y = np.interp(palm_center[1], [0.2, 0.8], [0, screen_h])
 
@@ -462,7 +462,7 @@ try:
                     else:
                         pyautogui.click()
                         print("single click")
-                        time.sleep(0.15)
+                        time.sleep(0.15)             
             elif multimedia_mode:
                 multimedia_gesture_detected = detect_multimedia_gestures(
                     hand_landmarks.landmark, 
@@ -491,15 +491,18 @@ try:
                         pyautogui.click()
                         print("single click")
                         time.sleep(0.15)
-            elif not keyboard_mode:
+                #detect_double_click(thumb_tip, ring_tip, CLICK_THRESHOLD)
+               # detect_right_click(thumb_tip, middle_tip, CLICK_THRESHOLD)
+            elif not keyboard_mode and not arrow_mode:
                 if detect_left_click(thumb_tip, index_tip, CLICK_THRESHOLD):
                     pyautogui.click()
                     print("single click")
                     time.sleep(0.15)
                 detect_double_click(thumb_tip, ring_tip, CLICK_THRESHOLD)
                 detect_right_click(thumb_tip, middle_tip, CLICK_THRESHOLD)
+            elif arrow_mode:
                 detect_simple_arrow(index_tip, palm_center, sensitivity=VOLUME_SENSITIVITY)
-            else:
+            elif keyboard_mode:
                 if detect_left_click(thumb_tip, index_tip, CLICK_THRESHOLD):
                     img_x = int(index_tip.x * frame.shape[1])
                     img_y = int(index_tip.y * frame.shape[0])
@@ -560,7 +563,7 @@ try:
                             keyboard_button_pressed = False
                             multimedia_button_pressed = False
                             volume_button_pressed = False
-                        print(f"Zoom mode toggled {'on' if zoom_mode else 'off'}")
+                        print(f"Zoom mode toggled {'on' if zoom_mode else 'PoffP '}")  
                         time.sleep(0.15)
                     else:
                         check_key_press(index_tip.x, index_tip.y, CLICK_THRESHOLD)
@@ -589,4 +592,3 @@ finally:
     cap.release()
     cv2.destroyAllWindows()
     hands.close()
-
